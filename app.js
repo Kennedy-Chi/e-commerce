@@ -63,6 +63,6 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.use(globalErrorHandler);
+// app.use(globalErrorHandler);
 
 module.exports = { server };
