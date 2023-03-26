@@ -15,20 +15,20 @@ router
   )
   .get(itemController.getAllItem);
 
-router
-  .route("/:id")
-  .delete(
-    authController.protect,
-    // authController.restrictTo("room"),
-    itemController.deleteItem,
-    deleteFile
-  )
-  .patch(
-    authController.protect,
-    upload.upload.single("image"),
-    itemController.updateItem,
-    deleteFile
-  );
+// router
+//   .route("/:id")
+//   .delete(
+//     authController.protect,
+//     // authController.restrictTo("room"),
+//     itemController.deleteItem,
+//     deleteFile
+//   )
+//   .patch(
+//     authController.protect,
+//     upload.upload.single("image"),
+//     itemController.updateItem,
+//     deleteFile
+//   );
 // .get(authController.protect, roomController.getRoom)
 
 // router.patch("/book-room/:id", roomController.bookRoom);
