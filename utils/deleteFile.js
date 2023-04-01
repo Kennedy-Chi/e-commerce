@@ -1,5 +1,5 @@
 const fs = require("fs");
-const deleteFile = (req, res) => {
+const deleteFile = (req, res, next) => {
   let filenames = req.fileNames;
   if (!Array.isArray(filenames)) {
     filenames = new Array(filenames);
@@ -8,6 +8,7 @@ const deleteFile = (req, res) => {
   if (filenames.length != 0) {
     for (let i = 0; i < filenames.length; i++) {
       if (fs.existsSync(`uploads/${filenames[i]}`)) {
+        console.log(filenames[i]);
         fs.unlinkSync(`uploads/${filenames[i]}`);
       }
     }
@@ -20,10 +21,12 @@ const deleteFile = (req, res) => {
     user: "";
   }
 
-  res.status(200).json({
-    status: "success",
-    user,
-  });
+  // res.status(200).json({
+  //   status: "success",
+  //   user,
+  // });
+
+  next();
 };
 
 module.exports = deleteFile;

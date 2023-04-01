@@ -3,17 +3,15 @@ const AppError = require("../utils/appError");
 const APIFeatures = require("../utils/apiFeatures");
 const catchAsync = require("../utils/catchAsync");
 
-exports.createItem = catchAsync(async (req, res) => {
+exports.createItem = catchAsync(async (req, res, next) => {
   const item = req.body;
+  item.color = JSON.parse(item.color);
   if (req.file) {
-    item.image = req.file.name;
+    item.image = req.file.filename;
   }
-  const newItem = await Item.create(req.body);
 
-  res.status(200).json({
-    status: "success",
-    data: newItem,
-  });
+  const newItem = await Item.create(req.body);
+  next();
 });
 
 exports.getAllItem = catchAsync(async (req, res, next) => {
@@ -62,7 +60,6 @@ exports.updateItem = catchAsync(async (req, res, next) => {
   });
 
   req.fileNames = filesToDelete;
-  req.data = item;
   next();
 });
 
@@ -80,11 +77,10 @@ exports.deleteItem = catchAsync(async (req, res, next) => {
 
 exports.fetchItems = (io, socket) => {
   socket.on("fetchItems", async (item) => {
-    const type = item.type;
+    const limit = item.limit;
     const items = await Item.find({
       name: { $regex: item.keyWord, $options: "$i" },
-      type: type,
-    });
+    }).limit(limit);
     io.emit("fetchedItems", items);
   });
 };
@@ -109,5 +105,17 @@ exports.resetAllItem = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
+  });
+});
+
+exports.getAnItem = catchAsync(async (req, res, next) => {
+  const item = await Item.findById(req.params.id);
+
+  if (!item) {
+    return next(new AppError("No item found with that ID", 404));
+  }
+  res.status(200).json({
+    status: "success",
+    data: item,
   });
 });

@@ -1,167 +1,227 @@
-// const { token } = require("morgan");
-// const Sales = require("../models/salesModel");
-// const Order = require("../models/orderModel");
-// const User = require("../models/userModel");
-// const AppError = require("../utils/appError");
-// const APIFeatures = require("../utils/apiFeatures");
-// const catchAsync = require("../utils/catchAsync");
+const { token } = require("morgan");
+const puppeteer = require("puppeteer");
+const fs = require("fs-extra");
+const hbs = require("handlebars");
+const path = require("path");
+const Sales = require("../models/salesModel");
+const User = require("../models/userModel");
+const Company = require("../models/companyModel");
+const Item = require("../models/itemModel");
+const AppError = require("../utils/appError");
+const APIFeatures = require("../utils/apiFeatures");
+const catchAsync = require("../utils/catchAsync");
 
-// exports.createOrder = catchAsync(async (req, res) => {
-//   let savedFields = {
-//     description: req.body.description,
-//     price: req.body.price,
-//     day: req.body.day,
-//     customer: req.body.customer,
-//     customerId: req.body.customerId,
-//     time: req.body.time,
-//   };
+hbs.registerHelper("inc", function (value, options) {
+  return parseInt(value) + 1;
+});
 
-//   console.log(savedFields);
+const compile = async (templateName, data) => {
+  const filePath = path.join(process.cwd(), "views", `${templateName}.hbs`);
+  const html = await fs.readFile(filePath, "utf-8");
+  return hbs.compile(html)(data);
+};
 
-//   // const saveSales = async (description, price, el) => {
-//   //   for (let i = 0; i < req.body.salesPoint.length; i++) {
-//   //     if (el == req.body.salesPoint[i]) {
-//   //       description.push(req.body.description[i]);
-//   //       price += req.body.eachPrice[i];
-//   //     }
-//   //   }
+exports.createSale = catchAsync(async (req, res, next) => {
+  const data = req.body;
+  let company = await Company.find();
+  company = company[0];
+  const names = new Set(data.cartItems.map((item) => item.name));
+  const namesArray = Array.from(names);
 
-//   //   const salesField = {
-//   //     description: description,
-//   //     price: price,
-//   //     day: req.body.day,
-//   //     customer: req.body.customer,
-//   //     customerId: req.body.customerId,
-//   //     time: req.body.time,
-//   //     salesPoint: el,
-//   //   };
+  const description = [];
 
-//   //   const sales = await Sales.create(salesField);
-//   // };
+  names.forEach((el) => {
+    const form = {
+      name: el,
+      price: 0,
+      unitPrice: 0,
+      quantity: 0,
+    };
+    data.cartItems.forEach((i) => {
+      if (el == i.name) {
+        form.quantity++;
+        form.price = i.price;
+        form.unitPrice = i.price;
+      }
+    });
 
-//   // const salesPointSet = new Set(req.body.salesPoint);
+    form.price = form.price * form.quantity;
+    description.push(form);
+  });
 
-//   // salesPointSet.forEach((el) => {
-//   //   let description = [];
-//   //   let price = 0;
-//   //   saveSales(description, price, el);
-//   // });
+  const query = { name: { $in: namesArray } };
+  const filteredItems = await Item.find(query);
 
-//   // const order = await Order.create(savedFields);
+  filteredItems.forEach((el) => {
+    description.forEach((item) => {
+      if (el.name == item.name) {
+        if (data.isPurchase) {
+          el.remaining[0] = item.quantity * 1 + el.remaining[0] * 1;
+          el.status = "Good";
+        } else {
+          const totalRemainingUnits =
+            el.remaining[1] + el.outputsPerInput * el.remaining[0];
+          if (item.quantity > totalRemainingUnits) {
+            return next(
+              new AppError(
+                `Sorry, you don't have any ${el.name} remaining to sell`,
+                500
+              )
+            );
+          } else {
+            const newRemainingUnits = totalRemainingUnits - item.quantity;
+            el.remaining.splice(
+              0,
+              1,
+              Math.floor(newRemainingUnits / el.outputsPerInput)
+            );
+            el.remaining.splice(1, 1, newRemainingUnits % el.outputsPerInput);
+            if (el.remaining[0] > 0) {
+              el.status = "Good";
+            } else if (
+              el.remaining[0] == 0 &&
+              el.remaining[1] > Math.floor(el.outputsPerInput / 2)
+            ) {
+              el.status = "Warning";
+            } else if (
+              el.remaining[0] == 0 &&
+              el.remaining[1] < Math.floor(el.outputsPerInput / 2)
+            ) {
+              el.status = "Danger";
+            } else if (el.remaining[0] == 0 && el.remaining[1] == 0) {
+              el.status = "Exhaustive";
+            }
+          }
+        }
+      }
+    });
+  });
 
-//   res.status(200).json({
-//     status: "success",
-//     // data: order,
-//   });
-// });
+  data.description = description;
+  data.companyName = company.companyName;
+  data.companyAccountNumber = company.companyAccountNumber;
+  data.companyAccountName = company.companyAccountName;
+  data.companyBankName = company.companyBankName;
+  data.companyAddress = company.media[0]?.text;
+  data.companyPhone = company.media[2]?.text;
+  data.companyEmail = company.systemEmail;
 
-// exports.getAllSales = catchAsync(async (req, res, next) => {
-//   // 1A) FILTERING
+  company.invoiceNumber = company.invoiceNumber - 1;
 
-//   // 2) SORTING
+  if (company.invoiceNumber < 0) {
+    return next(
+      new AppError(
+        "No invoice number for this purchase please set invoice.",
+        500
+      )
+    );
+  }
 
-//   // 3) FIELDS
+  let number = company.invoiceNumber;
 
-//   // 4) PAGINATION
+  let formattedNumber = number.toString();
+  if (formattedNumber.length < 5) {
+    formattedNumber = "0".repeat(5 - formattedNumber.length) + formattedNumber;
+  }
 
-//   const result = new APIFeatures(Sales.find(), req.query)
-//     .filter()
-//     .sort()
-//     .limitFields();
+  data.invoiceNumber = formattedNumber;
+  let invoiceName = `${data.customerName}-${data.invoiceNumber}`;
 
-//   const resultLen = await result.query;
+  await Company.findByIdAndUpdate(
+    company._id,
+    { invoiceNumber: number },
+    {
+      new: true,
+      runValidators: true,
+      useFindAndModify: false,
+    }
+  );
+  filteredItems.forEach(async (el) => {
+    await Item.updateOne({ _id: el.id }, { $set: { remaining: el.remaining } });
+  });
+  const sale = await Sales.create(data);
 
-//   const management = ["Manager", "Auditor", "Accountant"];
+  // try {
+  //   const browser = await puppeteer.launch();
+  //   const page = await browser.newPage();
+  //   page.setDefaultNavigationTimeout(60000);
+  //   const content = await compile("invoice", data);
 
-//   const staffs = ["Bar", "Pool Bartender", "Reception", "Restaurant"];
+  //   await page.emulateMediaFeatures("screen");
+  //   await page.setContent(content);
+  //   await page.pdf({
+  //     path: `uploads/${invoiceName}.pdf`,
+  //     format: "A4",
+  //     printBackground: true,
+  //   });
+  //   console.log("done");
+  //   browser.close();
+  // } catch (err) {
+  //   return next(new AppError(err, 501));
+  // }
 
-//   let paid;
+  res.status(200).json({
+    status: "success",
+    // data: sale,
+  });
+});
 
-//   let post;
+exports.getAllSales = catchAsync(async (req, res, next) => {
+  const result = new APIFeatures(Sales.find(), req.query)
+    .filter()
+    .sort()
+    .limitFields();
 
-//   if (management.includes(req.query.staffType)) {
-//     paid = await Sales.aggregate([
-//       { $match: { transaction: true } },
-//       { $group: { _id: null, amount: { $sum: "$price" } } },
-//     ]);
-//   } else if (staffs.includes(req.query.staffType)) {
-//     paid = await Sales.aggregate([
-//       { $match: { transaction: true, salesPoint: req.query.staffType } },
-//       { $group: { _id: null, amount: { $sum: "$price" } } },
-//     ]);
-//   } else if (req.query.customerId != undefined) {
-//     paid = await Sales.aggregate([
-//       { $match: { transaction: true, customerId: req.query.customerId } },
-//       { $group: { _id: null, amount: { $sum: "$price" } } },
-//     ]);
-//   }
+  const resultLen = await result.query;
 
-//   if (management.includes(req.query.staffType)) {
-//     post = await Sales.aggregate([
-//       { $match: { transaction: false } },
-//       { $group: { _id: null, amount: { $sum: "$price" } } },
-//     ]);
-//   } else if (staffs.includes(req.query.staffType)) {
-//     post = await Sales.aggregate([
-//       { $match: { transaction: false, salesPoint: req.query.staffType } },
-//       { $group: { _id: null, amount: { $sum: "$price" } } },
-//     ]);
-//   } else if (req.query.customerId != undefined) {
-//     post = await Sales.aggregate([
-//       { $match: { transaction: false, customerId: req.query.customerId } },
-//       { $group: { _id: null, amount: { $sum: "$price" } } },
-//     ]);
-//   }
+  const features = result.paginate();
 
-//   const features = result.paginate();
+  const sales = await features.query.clone();
 
-//   const sales = await features.query.clone();
+  // Assuming RESULT contains the array of filtered documents
+  const totalAmount = sales.reduce((acc, curr) => acc + curr.totalAmount, 0);
 
-//   res.status(200).json({
-//     status: "success",
-//     resultLength: resultLen.length,
-//     data: sales,
-//     paid: paid,
-//     post: post,
-//   });
-// });
+  res.status(200).json({
+    status: "success",
+    resultLength: resultLen.length,
+    data: sales,
+    totalAmount: totalAmount,
+  });
+});
 
-// exports.updateSales = (io, socket) => {
-//   socket.on("updateSales", async (body) => {
-//     const user = await User.findById(body.userId);
-//     const form = {
-//       status: body.status,
-//     };
+exports.updateSales = (io, socket) => {
+  socket.on("updateSales", async (body) => {
+    const user = await User.findById(body.userId);
+    const form = {
+      status: body.status,
+    };
 
-//     if (user.activeRoom) {
-//       form.customer = user.activeRoom;
-//     }
-//     const updatedSales = await Sales.findByIdAndUpdate(body.foodId, form, {
-//       new: true,
-//       runValidators: true,
-//       useFindAndModify: false,
-//     });
-//     io.emit("updatedSales", updatedSales);
-//   });
-// };
+    if (user.activeRoom) {
+      form.customer = user.activeRoom;
+    }
+    const updatedSales = await Sales.findByIdAndUpdate(body.foodId, form, {
+      new: true,
+      runValidators: true,
+      useFindAndModify: false,
+    });
+    io.emit("updatedSales", updatedSales);
+  });
+};
 
-// exports.deleteSales = catchAsync(async (req, res, next) => {
-//   const sales = await Sales.findByIdAndDelete(req.params.id);
+exports.deleteSales = catchAsync(async (req, res, next) => {
+  const sales = await Sales.findByIdAndDelete(req.params.id);
 
-//   if (!sales) {
-//     return next(new AppError("No sales found with that ID", 404));
-//   }
+  if (!sales) {
+    return next(new AppError("No sales found with that ID", 404));
+  }
 
-//   res.status(200).json({
-//     status: "success",
-//     data: sales,
-//   });
-// });
+  next();
+});
 
-// exports.deleteAllSales = catchAsync(async (req, res, next) => {
-//   await Sales.deleteMany(req.params.id);
+exports.deleteAllSales = catchAsync(async (req, res, next) => {
+  await Sales.deleteMany(req.params.id);
 
-//   res.status(200).json({
-//     status: "success",
-//   });
-// });
+  res.status(200).json({
+    status: "success",
+  });
+});

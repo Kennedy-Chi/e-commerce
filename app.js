@@ -8,10 +8,11 @@ const xss = require("xss-clean");
 // const userRouter = require("./routes/userRoutes");
 // const bannerRouter = require("./routes/bannerRoutes");
 const itemRouter = require("./routes/itemRoutes");
-// const salesRouter = require("./routes/salesRoutes");
+const salesRouter = require("./routes/salesRoutes");
+const companyRouter = require("./routes/companyRoutes");
 // const emailRouter = require("./routes/emailRoutes");
 // const faqRouter = require("./routes/faqRoutes");
-// const itemController = require("./controllers/itemController");
+const itemController = require("./controllers/itemController");
 // const orderController = require("./controllers/orderController");
 const globalErrorHandler = require("./controllers/errorController");
 dotenv.config({ path: "./config.env" });
@@ -19,24 +20,24 @@ dotenv.config({ path: "./config.env" });
 const app = express();
 const server = require("http").createServer(app);
 
-// const io = require("socket.io")(server, {
-//   cors: {
-//     origin: "*",
-//     methods: ["GET", "POST"],
-//   },
-// });
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
-// io.on("connection", (socket) => {
-//   console.log("New WS connection");
+io.on("connection", (socket) => {
+  console.log("New WS connection");
 
-//   chatController.createChat(io, socket);
-//   chatController.endChat(io, socket);
-//   chatController.getRooms(io, socket);
-//   chatController.getOffices(io, socket);
-//   itemController.fetchItems(io, socket);
-//   orderController.updateOrder(io, socket);
-//   orderController.createOrder(io, socket);
-// });
+  // chatController.createChat(io, socket);
+  // chatController.endChat(io, socket);
+  // chatController.getRooms(io, socket);
+  // chatController.getOffices(io, socket);
+  itemController.fetchItems(io, socket);
+  // orderController.updateOrder(io, socket);
+  // orderController.createOrder(io, socket);
+});
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -51,7 +52,8 @@ app.use(morgan("dev")); // configire morgan
 
 // app.use("/api/v1/users", userRouter);
 app.use("/api/items", itemRouter);
-// app.use("/api/v1/sales", salesRouter);
+app.use("/api/sales", salesRouter);
+app.use("/api/company", companyRouter);
 // app.use("/api/v1/banner", bannerRouter);
 // app.use("/api/v1/email", emailRouter);
 // app.use("/api/v1/faq", faqRouter);
@@ -63,6 +65,6 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// app.use(globalErrorHandler);
+app.use(globalErrorHandler);
 
 module.exports = { server };

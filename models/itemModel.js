@@ -14,11 +14,13 @@ const itemSchema = new mongoose.Schema({
 
   sellingPrice: Number,
 
+  description: String,
+
   buyingUnit: String,
 
   sellingUnit: String,
 
-  color: String,
+  color: Object,
 
   type: String,
 
@@ -44,6 +46,8 @@ const itemSchema = new mongoose.Schema({
     type: [Number],
     default: [0, 0],
   },
+
+  dateCreated: Number,
 
   availability: {
     type: Boolean,

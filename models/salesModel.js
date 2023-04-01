@@ -3,28 +3,27 @@ const mongoose = require("mongoose");
 const salesSchema = new mongoose.Schema({
   description: Array,
 
-  price: Number,
+  totalAmount: Number,
 
-  customerId: String,
+  customerName: String,
 
-  customer: String,
+  customerAddress: String,
 
-  deliveredBy: String,
+  customerPhone: String,
 
-  checkInCheckOut: Array,
+  customerEmail: String,
 
-  paidBy: String,
+  narration: String,
 
-  salesPoint: String,
+  discount: Number,
 
-  userStatus: String,
+  transactionType: String,
+
+  isPurchased: Boolean,
+
+  madeBy: String,
 
   status: {
-    type: Boolean,
-    default: false,
-  },
-
-  transaction: {
     type: Boolean,
     default: false,
   },
@@ -32,8 +31,6 @@ const salesSchema = new mongoose.Schema({
   day: String,
 
   time: String,
-
-  formatedDate: String,
 });
 
 const Sales = mongoose.model("Sales", salesSchema);
