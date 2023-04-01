@@ -4,11 +4,11 @@ const { server } = require("./app");
 mongoose.set("strictQuery", true);
 dotenv.config({ path: "./config.env" });
 
-// const DB = process.env.HOST_DB.replace(
-//   "<PASSWORD>",
-//   process.env.DATABASE_PASSWORD
-// );
-const DB = process.env.DATABASE;
+const DB = process.env.HOST_DB.replace(
+  "<PASSWORD>",
+  process.env.DATABASE_PASSWORD
+);
+// const DB = process.env.DATABASE;
 mongoose
   .connect(DB, {
     useNewUrlParser: true,

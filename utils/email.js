@@ -1,7 +1,6 @@
 const path = require("path");
 const nodemailer = require("nodemailer");
 const hbs = require("nodemailer-express-handlebars");
-const Sib = require("sib-api-v3-sdk");
 const dotenv = require("dotenv");
 const Transport = require("nodemailer-sendinblue-transport");
 dotenv.config({ path: "../config.env" });
